@@ -65,4 +65,3 @@ npm run dev
     - Generate content for each section/slide using Gemini.
     - Refine content with natural language instructions.
     - Export to `.docx` or `.pptx`.
->>>>>>> 4909b86 (Initial commit)
