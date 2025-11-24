@@ -116,3 +116,82 @@ async def export_project(project_id: str, user: dict = Depends(get_current_user)
         media_type=media_type, 
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.post("/{project_id}/items", response_model=Project)
+async def add_item(project_id: str, title: str = "New Section", user: dict = Depends(get_current_user)):
+    db = get_db()
+    if db:
+        doc_ref = db.collection("projects").document(project_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+        project_data = doc.to_dict()
+    else:
+        project = MOCK_DB.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        project_data = project.dict() # If it's a model
+
+    if project_data['user_id'] != user['uid']:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    new_item = ContentItem(
+        id=str(uuid.uuid4()),
+        title=title,
+        type="section" if project_data['type'] == "word" else "slide",
+        order=len(project_data['items']),
+        content=""
+    )
+    
+    # If project_data is dict (Firebase) or Pydantic (Mock)
+    if isinstance(project_data, dict):
+        items = project_data.get('items', [])
+        items.append(new_item.dict())
+        project_data['items'] = items
+        project_data['updated_at'] = datetime.now()
+        if db:
+            doc_ref.set(project_data)
+        else:
+            MOCK_DB[project_id] = Project(**project_data)
+    else:
+        # Mock DB Pydantic object
+        project_data.items.append(new_item)
+        project_data.updated_at = datetime.now()
+        MOCK_DB[project_id] = project_data
+        project_data = project_data.dict()
+
+    return project_data
+
+@router.delete("/{project_id}/items/{item_id}", response_model=Project)
+async def delete_item(project_id: str, item_id: str, user: dict = Depends(get_current_user)):
+    db = get_db()
+    if db:
+        doc_ref = db.collection("projects").document(project_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+        project_data = doc.to_dict()
+    else:
+        project = MOCK_DB.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        project_data = project.dict()
+
+    if project_data['user_id'] != user['uid']:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if isinstance(project_data, dict):
+        items = project_data.get('items', [])
+        project_data['items'] = [i for i in items if i['id'] != item_id]
+        project_data['updated_at'] = datetime.now()
+        if db:
+            doc_ref.set(project_data)
+        else:
+            MOCK_DB[project_id] = Project(**project_data)
+    else:
+        project_data.items = [i for i in project_data.items if i.id != item_id]
+        project_data.updated_at = datetime.now()
+        MOCK_DB[project_id] = project_data
+        project_data = project_data.dict()
+
+    return project_data

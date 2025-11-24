@@ -11,10 +11,13 @@ class ContentItem(BaseModel):
     id: str
     title: str
     content: Optional[str] = ""
-    type: Literal["section", "slide"]
+    type: Literal["section", "slide", "chart", "image_prompt"]
     order: int
     feedback: Optional[str] = None # like/dislike
     comments: List[str] = []
+    chart_data: Optional[dict] = None # {type: "bar", categories: [], series: []}
+    image_prompt: Optional[str] = None
+    image_url: Optional[str] = None
 
 class ProjectBase(BaseModel):
     title: str
